@@ -31,9 +31,9 @@ async def handle_verification(request):
     'Get a GET request and try to verify it'
     #audioname = request.match_info.get('audioname', None) # match path string, see the respective route
     app.logger.debug('About to read a challenge')
-    challenge = request.query.get('hub.challenge')
-    if challenge is not None and challenge == SECRET_CHALLENGE:
-        return web.Response(text=challenge)
+    token = request.query.get('hub.verify_token')
+    if token is not None and token == SECRET_CHALLENGE:
+        return web.Response(text=request.query.get('hub.challenge', 'Oops'))
     else:
         return web.Response(status=400, text='You dont belong here')
 
@@ -43,7 +43,13 @@ async def handle_message(request):
     'Get a POST request and treat it like an incoming message'
     app.logger.debug('About to read a message')
     postdata = await request.text()
-    page.handle_webhook(postdata, message=msg_handler)
+    page.handle_webhook(postdata, 
+                        message=message_handler,
+                        delivery=delivery_handler,
+                        optin=optin_handler,
+                        read=read_handler,
+    )
+    return web.Response(text='OK')
 
 app.router.add_post(SECRET_URI, handle_message)
 
@@ -51,12 +57,29 @@ def after_send(payload, response):
   """:type event: fbmq.Payload"""
   print("complete")
 
-def msg_handler(event):
+def message_handler(event):
   """:type event: fbmq.Event"""
   sender_id = event.sender_id
   message = event.message_text
+  print('New msg from {}: {}'.format(sender_id, message))
   page.send(sender_id, "thank you! your message is '%s'" % message)
 
+def delivery_handler(event):
+  """:type event: fbmq.Event
+  This callback will occur when a message a page has sent has been delivered."""
+  sender_id = event.sender_id
+  message = event.message_text
+  print('Message from me ({}) delivered: {}'.format(sender_id, message))
+
+def read_handler(event):
+  """:type event: fbmq.Event
+  This callback will occur when a message a page has sent has been read by the user.
+  """
+  sender_id = event.sender_id
+  message = event.message_text
+  print('Message from me ({}) has been read: {}'.format(sender_id, message))
+
+optin_handler= message_handler
 
 page = fbmq.Page(PAGE_ACCESS_TOKEN, after_send=after_send)
 
