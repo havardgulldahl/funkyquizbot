@@ -26,16 +26,16 @@ PAGE_ACCESS_TOKEN = env('PAGE_ACCESS_TOKEN')
 
 loop = asyncio.get_event_loop()
 app = web.Application(loop=loop)
-page = fbmq.Page(PAGE_ACCESS_TOKEN, after_send=after_send)
 
 async def handle_verification(request):
     'Get a GET request and try to verify it'
     #audioname = request.match_info.get('audioname', None) # match path string, see the respective route
+    app.logger.debug('About to read a challenge')
     challenge = request.query.get('hub.challenge')
-    if challenge == SECRET_CHALLENGE:
-        web.Response(text=challenge)
+    if challenge is not None and challenge == SECRET_CHALLENGE:
+        return web.Response(text=challenge)
     else:
-        web.Response(status=400, text='You dont belong here')
+        return web.Response(status=400, text='You dont belong here')
 
 app.router.add_get(SECRET_URI, handle_verification)
 
@@ -51,12 +51,14 @@ def after_send(payload, response):
   """:type event: fbmq.Payload"""
   print("complete")
 
-def message_handler(event):
+def msg_handler(event):
   """:type event: fbmq.Event"""
   sender_id = event.sender_id
   message = event.message_text
   page.send(sender_id, "thank you! your message is '%s'" % message)
 
+
+page = fbmq.Page(PAGE_ACCESS_TOKEN, after_send=after_send)
 
 if __name__ == '__main__':
     import logging
@@ -64,6 +66,5 @@ if __name__ == '__main__':
     # start server
     web.run_app(
         app,
-        #reload=True,
         port=8000
     )
