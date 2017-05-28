@@ -61,8 +61,8 @@ app.router.add_post(SECRET_URI, handle_message)
 
 @page.after_send
 def after_send(payload, response):
-  """:type event: fbmq.Payload"""
-  print("complete")
+    """:type event: fbmq.Payload"""
+    print("complete")
 
 def receipt(payload, response):
     "a callback that receives a message receipt"
@@ -70,45 +70,46 @@ def receipt(payload, response):
 
 @page.handle_message
 def message_handler(event):
-  """:type event: fbmq.Event"""
-  sender_id = event.sender_id
-  message = event.message_text
-  print('New msg from {}: {}'.format(sender_id, message))
-  page.typing_on(sender_id)
-  page.send(sender_id, "thank you! your message is '%s'" % message, callback=receipt)
-  # Send a gif
-  #page.send(sender_id, Attachment.Image('https://media.giphy.com/media/3o7bu57lYhUEFiYDSM/giphy.gif'))
+    """:type event: fbmq.Event"""
+    sender_id = event.sender_id
+    message = event.message_text
+    print('New msg from {}: {}'.format(sender_id, message))
+    page.typing_on(sender_id)
+    page.send(sender_id, "thank you! your message is '%s'" % message, callback=receipt)
+    # Send a gif
+    #page.send(sender_id, Attachment.Image('https://media.giphy.com/media/3o7bu57lYhUEFiYDSM/giphy.gif'))
 
-  # ask a question
-  buttons = [
-    Template.ButtonPostBack("Ja", "ANSWER_YES"),
-    Template.ButtonPostBack("Nei", "ANSWER_NO"),
-  ]
-  page.send(sender_id, Template.Buttons("Er Cantona i live?", buttons))
+    # ask a question
+    buttons = [
+        Template.ButtonPostBack("Ja", "ANSWER_YES"),
+        Template.ButtonPostBack("Nei", "ANSWER_NO"),
+    ]
+    page.send(sender_id, Template.Buttons("Er Cantona i live?", buttons))
 
-  page.typing_off(sender_id)
+    page.typing_off(sender_id)
 
 @page.callback(['ANSWER_.+'])
-def callback_clicked_button(payload, event):
-  print('Got ANSWER: {} <- {}'.format(payload, event))
+def callback_answer(payload, event):
+    "A callback for any ANSWER payload we get. "
+    print('Got ANSWER: {} <- {}'.format(payload, event))
 
 @page.handle_delivery
 def delivery_handler(event):
-  """:type event: fbmq.Event
-  This callback will occur when a message a page has sent has been delivered."""
-  sender_id = event.sender_id
-  watermark = event.delivery.get('watermark', None)
-  messages = event.delivery.get('mids', [])
-  #print('Message from me ({}) delivered: {}'.format(sender_id, messages or watermark))
+    """:type event: fbmq.Event
+    This callback will occur when a message a page has sent has been delivered."""
+    sender_id = event.sender_id
+    watermark = event.delivery.get('watermark', None)
+    messages = event.delivery.get('mids', [])
+    #print('Message from me ({}) delivered: {}'.format(sender_id, messages or watermark))
 
 @page.handle_read
 def read_handler(event):
-  """:type event: fbmq.Event
-  This callback will occur when a message a page has sent has been read by the user.
-  """
-  sender_id = event.sender_id
-  watermark = event.read.get('watermark', None)
-  #print('Message from me ({}) has been read: {}'.format(sender_id, watermark))
+    """:type event: fbmq.Event
+    This callback will occur when a message a page has sent has been read by the user.
+    """
+    sender_id = event.sender_id
+    watermark = event.read.get('watermark', None)
+    #print('Message from me ({}) has been read: {}'.format(sender_id, watermark))
 
 optin_handler = message_handler
 
