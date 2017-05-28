@@ -8,6 +8,7 @@ from urllib.parse import quote
 
 import asyncio
 import uuid
+import json
 
 from asyncio import coroutine
 
@@ -68,6 +69,22 @@ def receipt(payload, response):
     "a callback that receives a message receipt"
     print('response : ' + response.text)
 
+def encode_payload(prefix, data):
+    """Return a <data> as a string, prefixed with <prefix>, for use as callback payload.
+    Raises ValueError if content is invalid as a payload. E.g. length>1000."""
+    r = """{}___{}""".format(prefix, json.dumps(data))
+    # do some formal checks, as per
+    # https://developers.facebook.com/docs/messenger-platform/send-api-reference/postback-button
+    if len(r) > 1000:
+        # postback content has max length of 1000
+        raise ValueError
+    return r
+
+def decode_payload(s):
+    "Decode a payload encoded with encode_payload(). Returns (prefix, data)"
+    prefix, data = s.split('___', 2)
+    return (prefix, json.loads(data))
+
 @page.handle_message
 def message_handler(event):
     """:type event: fbmq.Event"""
@@ -81,8 +98,9 @@ def message_handler(event):
 
     # ask a question
     buttons = [
-        Template.ButtonPostBack("Ja", "ANSWER_YES"),
-        Template.ButtonPostBack("Nei", "ANSWER_NO"),
+        Template.ButtonPostBack("Ja", encode_payload('ANSWER', {'reply':'YES', 'correct':True})),
+        Template.ButtonPostBack("Nja", encode_payload('ANSWER', {'reply':'MAYBE', 'correct':False})),
+        Template.ButtonPostBack("NEi", encode_payload('ANSWER', {'reply':'NO', 'correct':False})),
     ]
     page.send(sender_id, Template.Buttons("Er Cantona i live?", buttons))
 
@@ -91,7 +109,10 @@ def message_handler(event):
 @page.callback(['ANSWER_.+'])
 def callback_answer(payload, event):
     "A callback for any ANSWER payload we get. "
-    print('Got ANSWER: {} <- {}'.format(payload, event))
+    sender_id = event.sender_id
+    prefix, data = decode_payload(payload)
+    print('Got ANSWER: {} (correct? {})'.format(data['reply'], 'YES' if data['correct'] else 'NON'))
+    page.send(sender_id, "Your reply was {}".format('CORRECT' if data['correct'] else 'INCORRECT :('))
 
 @page.handle_delivery
 def delivery_handler(event):
