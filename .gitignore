@@ -102,3 +102,6 @@ share/
 
 # mypy
 .mypy_cache/
+
+credentials.json
+
