@@ -3,6 +3,7 @@
 import os.path
 import tempfile
 import time
+import random
 import pathlib
 from urllib.parse import quote
 
@@ -15,6 +16,8 @@ from asyncio import coroutine
 from aiohttp import web
 
 from envparse import env, ConfigurationError
+
+from data import Datastore
 
 import fbmq
 from fbmq import Attachment, Template, QuickReply
@@ -29,6 +32,9 @@ PAGE_ACCESS_TOKEN = env('PAGE_ACCESS_TOKEN')
 loop = asyncio.get_event_loop()
 app = web.Application(loop=loop)
 page = fbmq.Page(PAGE_ACCESS_TOKEN)
+
+quizes = []
+data = None
 
 async def handle_verification(request):
     'Get a GET request and try to verify it'
@@ -92,19 +98,39 @@ def message_handler(event):
     message = event.message_text
     print('New msg from {}: {}'.format(sender_id, message))
     page.typing_on(sender_id)
-    page.send(sender_id, "thank you! your message is '%s'" % message, callback=receipt)
+    if message.lower() in ['quiz',]:
+        quiz(event)
+    else:
+        page.send(sender_id, "thank you, '%s' yourself! type 'quiz' to start it :)" % message, callback=receipt)
+    page.typing_off(sender_id)
+
+def quiz(event):
+    "start or continue a quiz"
+    sender_id = event.sender_id
+    message = event.message_text
     # Send a gif
     #page.send(sender_id, Attachment.Image('https://media.giphy.com/media/3o7bu57lYhUEFiYDSM/giphy.gif'))
 
     # ask a question
+    try:
+        quiz = random.choice(quizes)
+    except IndexError:
+        # no quizes in list, yikes
+        page.send(sender_id, "We have no available quizes for you, pls try again later 8)")
+        return
     buttons = [
-        Template.ButtonPostBack("Ja", encode_payload('ANSWER', {'reply':'YES', 'correct':True})),
-        Template.ButtonPostBack("Nja", encode_payload('ANSWER', {'reply':'MAYBE', 'correct':False})),
-        Template.ButtonPostBack("NEi", encode_payload('ANSWER', {'reply':'NO', 'correct':False})),
+        QuickReply(title=quiz.correct, payload=encode_payload('ANSWER', {'reply':quiz.correct, 'correct':True})),
+        #Template.ButtonPostBack("Ja", encode_payload('ANSWER', {'reply':'YES', 'correct':True})),
+        #Template.ButtonPostBack("Nja", encode_payload('ANSWER', {'reply':'MAYBE', 'correct':False})),
+        #Template.ButtonPostBack("NEi", encode_payload('ANSWER', {'reply':'NO', 'correct':False})),
     ]
-    page.send(sender_id, Template.Buttons("Er Cantona i live?", buttons))
+    for text in [a for a in quiz.incorrectanswers if len(a) > 0]:
+        buttons.append(
+            QuickReply(title=text, payload=encode_payload('ANSWER', {'reply':text, 'correct':False}))
+        )
+    logging.debug("sending quiz: %s", quiz)
+    page.send(sender_id, quiz.question, quick_replies=buttons)
 
-    page.typing_off(sender_id)
 
 @page.callback(['ANSWER_.+'])
 def callback_answer(payload, event):
@@ -134,11 +160,31 @@ def read_handler(event):
 
 optin_handler = message_handler
 
+async def getquizdata(app):
+    "Background task to periodically update quizes"
+    # https://aiohttp.readthedocs.io/en/stable/web.html#background-tasks
+    global quizes, data
+    while True:
+        logging.debug(
+            "Get new quizquestions, currently we have {!r}".format(quizes)
+        )
+        quizes = await data.quizquestions()
+        await asyncio.sleep(600.0)
+        #time.sleep(30.0)
+
+async def start_background_tasks(app):
+    " run short and long running background tasks in aiohttp server "
+    app['quizfetcher'] = app.loop.create_task(getquizdata(app))
+
 if __name__ == '__main__':
     import logging
-    logging.basicConfig(level=logging.WARNING)
+    logging.basicConfig(level=logging.DEBUG)
+    data = Datastore()
+    # get quizes
+    app.on_startup.append(start_background_tasks)
     # start server
     web.run_app(
         app,
         port=8000
     )
+    loop.close()
