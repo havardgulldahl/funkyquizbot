@@ -34,7 +34,7 @@ class Datastore:
         "Get quiz questsions"
         sheet = self.g.open_by_key(env('SHEET_ID_QUIZ')).sheet1
         logging.debug('about to get new quiz questions')
-        return [QuizQuestion(row[0], row[1], row[1:]) for row in sheet.get_all_values() if not row[0].startswith('#')]
+        return [QuizQuestion(row[0], row[1], row[2:]) for row in sheet.get_all_values() if not row[0].startswith('#')]
 
     async def quizprizes(self):
         "Get quiz prizes"

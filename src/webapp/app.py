@@ -53,15 +53,7 @@ async def handle_message(request):
     app.logger.debug('Incoming payload')
     postdata = await request.text()
 
-    page.handle_webhook(postdata)
-    """
-                        # dispatch message to correct handler
-                        message=message_handler,
-                        delivery=delivery_handler,
-                        optin=optin_handler,
-                        read=read_handler,
-    )
-    """
+    page.handle_webhook(postdata) # fbmq distributes according to @decorators
     return web.Response(text='OK') # return quickly
 
 app.router.add_post(SECRET_URI, handle_message)
@@ -98,8 +90,14 @@ def message_handler(event):
     message = event.message_text
     print('New msg from {}: {}'.format(sender_id, message))
     page.typing_on(sender_id)
-    if message.lower() in ['quiz',]:
+    if message is None:
+        print("message is none, is this a thumbs up?")
+    elif message.lower() in ['quiz',]:
         quiz(event)
+    elif event.is_postback:
+        print("this is postback, someone else must handle it")
+    elif event.is_quick_reply:
+        print("this is quickreply, someone else must handle it")
     else:
         page.send(sender_id, "thank you, '%s' yourself! type 'quiz' to start it :)" % message, callback=receipt)
     page.typing_off(sender_id)
@@ -118,16 +116,16 @@ def quiz(event):
         # no quizes in list, yikes
         page.send(sender_id, "We have no available quizes for you, pls try again later 8)")
         return
-    buttons = [
-        QuickReply(title=quiz.correct, payload=encode_payload('ANSWER', {'reply':quiz.correct, 'correct':True})),
-        #Template.ButtonPostBack("Ja", encode_payload('ANSWER', {'reply':'YES', 'correct':True})),
-        #Template.ButtonPostBack("Nja", encode_payload('ANSWER', {'reply':'MAYBE', 'correct':False})),
-        #Template.ButtonPostBack("NEi", encode_payload('ANSWER', {'reply':'NO', 'correct':False})),
-    ]
+    buttons = []
     for text in [a for a in quiz.incorrectanswers if len(a) > 0]:
         buttons.append(
             QuickReply(title=text, payload=encode_payload('ANSWER', {'reply':text, 'correct':False}))
         )
+    # TODO: quick_replies is limited to 11, prune incorrect answers if too many
+    buttons.append(
+        QuickReply(title=quiz.correct, payload=encode_payload('ANSWER', {'reply':quiz.correct, 'correct':True})),
+    )
+    random.shuffle(buttons) # hide  correct answer
     logging.debug("sending quiz: %s", quiz)
     page.send(sender_id, quiz.question, quick_replies=buttons)
 
@@ -137,8 +135,12 @@ def callback_answer(payload, event):
     "A callback for any ANSWER payload we get. "
     sender_id = event.sender_id
     prefix, data = decode_payload(payload)
-    print('Got ANSWER: {} (correct? {})'.format(data['reply'], 'YES' if data['correct'] else 'NON'))
+    print('Got ANSWER: {} (correct? {})'.format(data, 'YES' if data['correct'] else 'NON'))
     page.send(sender_id, "Your reply was {}".format('CORRECT' if data['correct'] else 'INCORRECT :('))
+    # TODO check how many we have correct
+    if data['correct']:
+        # answer is correct, you may continue
+        quiz(event)
 
 @page.handle_delivery
 def delivery_handler(event):
