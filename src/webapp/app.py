@@ -82,7 +82,7 @@ def message_handler(event):
     """:type event: fbmq.Event"""
     sender_id = event.sender_id
     message = event.message_text
-    logger.debug('New msg from {}: {}'.format(sender_id, message))
+    logger.debug('New msg from %s: %r', sender_id, message)
     page.typing_on(sender_id)
     if message is None:
         logger.debug("message is none, is this a thumbs up?")
@@ -94,7 +94,6 @@ def message_handler(event):
         logger.debug("this is quickreply, someone else must handle it")
     else:
         page.send(sender_id, "thank you, '%s' yourself! type 'quiz' to start it :)" % message, callback=receipt)
-    page.typing_off(sender_id)
 
 def quiz(event, previous=None):
     "start or continue a quiz"
@@ -103,38 +102,51 @@ def quiz(event, previous=None):
     # Send a gif
     #page.send(sender_id, Attachment.Image('https://media.giphy.com/media/3o7bu57lYhUEFiYDSM/giphy.gif'))
 
+    # the first question is special
+    if previous is None:
+        # a brand new quiz
+        page.send(sender_id, "Welcome to a brand new quiz! If you get seven in a row, you get a prize")
+        previous = [ ]  # a list to keep previous quiz id's 
     # ask a question
     try:
-        quiz = random.choice(quizes)
+        quiz = random.choice(quizes) # get a random quiz
+        while quiz.qid in previous:
+            quiz = random.choice(quizes) # we've had this ques before, get a new onone
     except IndexError:
         # no quizes in list, yikes
         page.send(sender_id, "We have no available quizes for you, pls try again later 8)")
         return
+    previous.append(quiz.qid) # remember what we've seen|
     buttons = []
     for text in quiz.incorrectanswers:
         buttons.append(
-            QuickReply(title=text, payload=encode_payload('ANSWER', {'previous':text, 'correct':False}))
+            QuickReply(title=text, payload=encode_payload('ANSWER', {'previous':previous, 'correct':False}))
         )
     # TODO: quick_replies is limited to 11, prune incorrect answers if too many
     buttons.append(
-        QuickReply(title=quiz.correct, payload=encode_payload('ANSWER', {'previous':quiz.correct, 'correct':True})),
+        QuickReply(title=quiz.correct, payload=encode_payload('ANSWER', {'previous':previous, 'correct':True})),
     )
     random.shuffle(buttons) # hide  correct answer
     logger.debug("sending quiz: %s", quiz)
     page.send(sender_id, quiz.question, quick_replies=buttons)
+    page.typing_off(sender_id)
 
 
 @page.callback(['ANSWER_.+'])
 def callback_answer(payload, event):
     "A callback for any ANSWER payload we get. "
     sender_id = event.sender_id
-    prefix, data = decode_payload(payload)
-    logger.debug('Got ANSWER: {} (correct? {})'.format(data, 'YES' if data['correct'] else 'NON'))
-    page.send(sender_id, "Your reply was {}".format('CORRECT' if data['correct'] else 'INCORRECT :('))
+    page.typing_on(sender_id)
+    prefix, metadata = decode_payload(payload)
+    logger.debug('Got ANSWER: {} (correct? {})'.format(metadata, 'YES' if metadata['correct'] else 'NON'))
+    page.send(sender_id, "Your reply was {}".format('CORRECT' if metadata['correct'] else 'INCORRECT :('))
     # TODO check how many we have correct
-    if data['correct']:
+    if metadata['correct']:
         # answer is correct, you may continue
-        quiz(event)
+        _prev = metadata['previous']
+        page.send(sender_id, "you have {} correct questions, only {} to go!".format(len(_prev),
+                                                                                    7-len(_prev)))
+        quiz(event, _prev)
 
 @page.handle_delivery
 def delivery_handler(event):
