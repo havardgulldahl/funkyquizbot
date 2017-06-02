@@ -15,7 +15,7 @@ env.read_envfile()
 from flask import Flask, request
 from flask_apscheduler import APScheduler # pip install Flask-APScheduler
 
-from data import Datastore
+from .data import Datastore
 
 import fbmq
 from fbmq import Attachment, Template, QuickReply
@@ -194,7 +194,7 @@ class Config(object):
     JOBS = [
         {
             'id': 'getquizdata',
-            'func': '__main__:getquizdata',
+            'func': 'webapp.app:getquizdata',
             'args': (),
             'trigger': 'interval',
             'seconds': 60
@@ -203,12 +203,13 @@ class Config(object):
     SCHEDULER_API_ENABLED = False # REST api to jobs
     SCHEDULER_TIMEZONE = 'Europe/Oslo'
 
+app.config.from_object(Config())
+data = Datastore()
+# get quizes
+scheduler = APScheduler()
+scheduler.init_app(app)
+scheduler.start()
+
 if __name__ == '__main__':
-    app.config.from_object(Config())
-    data = Datastore()
-    # get quizes
-    scheduler = APScheduler()
-    scheduler.init_app(app)
-    scheduler.start()
     # start server
     app.run(host='0.0.0.0', port=8000, debug=False, threaded=True)
