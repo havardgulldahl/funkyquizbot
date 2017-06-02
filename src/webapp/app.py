@@ -107,6 +107,11 @@ def quiz(event, previous=None):
         # a brand new quiz
         page.send(sender_id, "Welcome to a brand new quiz! If you get seven in a row, you get a prize")
         previous = [ ]  # a list to keep previous quiz id's 
+    else:
+        if len(previous) >= 7:
+            # we have made 7 in a row
+            send_prize(event, previous)
+            return
     # ask a question
     try:
         quiz = random.choice(quizes) # get a random quiz
@@ -131,6 +136,15 @@ def quiz(event, previous=None):
     page.send(sender_id, quiz.question, quick_replies=buttons)
     page.typing_off(sender_id)
 
+
+def send_prize(event, previous=None):
+    "send a prize"
+    sender_id = event.sender_id
+    message = event.message_text
+    page.typing_on(sender_id)
+    page.send(sender_id, "wow, you're on a nice streak. Here's a prize!")
+    # Send a gif prize
+    page.send(sender_id, Attachment.Image('https://media.giphy.com/media/3o7bu57lYhUEFiYDSM/giphy.gif'))
 
 @page.callback(['ANSWER_.+'])
 def callback_answer(payload, event):
