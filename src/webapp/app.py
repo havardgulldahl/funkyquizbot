@@ -11,11 +11,17 @@ import asyncio
 import uuid
 import json
 
-from asyncio import coroutine
+import logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
-from aiohttp import web
+from asyncio import coroutine # requires python>3.5
 
-from envparse import env, ConfigurationError
+#from aiohttp import web # pip install aiohttp
+from flask import Flask, request
+from flask_apscheduler import APScheduler # pip install Flask-APScheduler
+
+from envparse import env, ConfigurationError # pip install envparse
 
 from data import Datastore
 
@@ -30,33 +36,33 @@ SECRET_URI = '/{}'.format(env('SECRET_URI'))
 PAGE_ACCESS_TOKEN = env('PAGE_ACCESS_TOKEN')
 
 loop = asyncio.get_event_loop()
-app = web.Application(loop=loop)
+#app = web.Application(loop=loop)
+app = Flask(__name__)
 page = fbmq.Page(PAGE_ACCESS_TOKEN)
 
 quizes = []
 data = None
 
-async def handle_verification(request):
+@app.route(SECRET_URI, methods=['GET'])
+def handle_verification():
     'Get a GET request and try to verify it'
     #audioname = request.match_info.get('audioname', None) # match path string, see the respective route
-    app.logger.debug('About to read a challenge')
-    token = request.query.get('hub.verify_token')
-    if token is not None and token == SECRET_CHALLENGE:
-        return web.Response(text=request.query.get('hub.challenge', 'Oops'))
+    logger.debug('About to read a challenge')
+    token = request.args.get('hub.verify_token')
+    if request.args.get('hub.mode', '') == 'subscribe' and \
+        token is not None and token == SECRET_CHALLENGE:
+        return request.args.get('hub.challenge', 'Oops')
     else:
-        return web.Response(status=400, text='You dont belong here')
+        return 'You dont belong here'
 
-app.router.add_get(SECRET_URI, handle_verification)
-
-async def handle_message(request):
+@app.route(SECRET_URI, methods=['POST'])
+def handle_message():
     'Get a POST request and treat it like an incoming message'
-    app.logger.debug('Incoming payload')
-    postdata = await request.text()
+    logger.debug('Incoming payload')
+    postdata = request.get_data(as_text=True)
 
     page.handle_webhook(postdata) # fbmq distributes according to @decorators
-    return web.Response(text='OK') # return quickly
-
-app.router.add_post(SECRET_URI, handle_message)
+    return 'OK' # return quickly
 
 @page.after_send
 def after_send(payload, response):
@@ -102,7 +108,7 @@ def message_handler(event):
         page.send(sender_id, "thank you, '%s' yourself! type 'quiz' to start it :)" % message, callback=receipt)
     page.typing_off(sender_id)
 
-def quiz(event):
+def quiz(event, previous=None):
     "start or continue a quiz"
     sender_id = event.sender_id
     message = event.message_text
@@ -117,16 +123,16 @@ def quiz(event):
         page.send(sender_id, "We have no available quizes for you, pls try again later 8)")
         return
     buttons = []
-    for text in [a for a in quiz.incorrectanswers if len(a) > 0]:
+    for text in quiz.incorrectanswers:
         buttons.append(
-            QuickReply(title=text, payload=encode_payload('ANSWER', {'reply':text, 'correct':False}))
+            QuickReply(title=text, payload=encode_payload('ANSWER', {'previous':text, 'correct':False}))
         )
     # TODO: quick_replies is limited to 11, prune incorrect answers if too many
     buttons.append(
-        QuickReply(title=quiz.correct, payload=encode_payload('ANSWER', {'reply':quiz.correct, 'correct':True})),
+        QuickReply(title=quiz.correct, payload=encode_payload('ANSWER', {'previous':quiz.correct, 'correct':True})),
     )
     random.shuffle(buttons) # hide  correct answer
-    logging.debug("sending quiz: %s", quiz)
+    logger.debug("sending quiz: %s", quiz)
     page.send(sender_id, quiz.question, quick_replies=buttons)
 
 
@@ -162,31 +168,36 @@ def read_handler(event):
 
 optin_handler = message_handler
 
-async def getquizdata(app):
+def getquizdata():
     "Background task to periodically update quizes"
-    # https://aiohttp.readthedocs.io/en/stable/web.html#background-tasks
     global quizes, data
     while True:
-        logging.debug(
+        logger.debug(
             "Get new quizquestions, currently we have {!r}".format(quizes)
         )
-        quizes = await data.quizquestions()
-        await asyncio.sleep(600.0)
-        #time.sleep(30.0)
+        quizes = data.quizquestions()
+        #await asyncio.sleep(600.0)
+        time.sleep(5.0)
 
-async def start_background_tasks(app):
-    " run short and long running background tasks in aiohttp server "
-    app['quizfetcher'] = app.loop.create_task(getquizdata(app))
+class Config(object):
+    JOBS = [
+        {
+            'id': 'getquizdata',
+            'func': '__main__:getquizdata',
+            'args': (),
+            'trigger': 'interval',
+            'seconds': 60
+        },
+    ]
+    SCHEDULER_API_ENABLED = False # REST api to jobs
+    SCHEDULER_TIMEZONE = 'Europe/Oslo'
 
 if __name__ == '__main__':
-    import logging
-    logging.basicConfig(level=logging.DEBUG)
+    app.config.from_object(Config())
     data = Datastore()
     # get quizes
-    app.on_startup.append(start_background_tasks)
+    scheduler = APScheduler()
+    scheduler.init_app(app)
+    scheduler.start()
     # start server
-    web.run_app(
-        app,
-        port=8000
-    )
-    loop.close()
+    app.run(host='0.0.0.0', port=8000, debug=True, threaded=True)
