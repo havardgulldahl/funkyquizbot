@@ -67,11 +67,11 @@ def handle_message():
 @page.after_send
 def after_send(payload, response):
     """:type event: fbmq.Payload"""
-    print("complete")
+    logger.debug("complete")
 
 def receipt(payload, response):
     "a callback that receives a message receipt"
-    print('response : ' + response.text)
+    logger.debug('response : ' + response.text)
 
 def encode_payload(prefix, data):
     """Return a <data> as a string, prefixed with <prefix>, for use as callback payload.
@@ -94,16 +94,16 @@ def message_handler(event):
     """:type event: fbmq.Event"""
     sender_id = event.sender_id
     message = event.message_text
-    print('New msg from {}: {}'.format(sender_id, message))
+    logger.debug('New msg from {}: {}'.format(sender_id, message))
     page.typing_on(sender_id)
     if message is None:
-        print("message is none, is this a thumbs up?")
+        logger.debug("message is none, is this a thumbs up?")
     elif message.lower() in ['quiz',]:
         quiz(event)
     elif event.is_postback:
-        print("this is postback, someone else must handle it")
+        logger.debug("this is postback, someone else must handle it")
     elif event.is_quick_reply:
-        print("this is quickreply, someone else must handle it")
+        logger.debug("this is quickreply, someone else must handle it")
     else:
         page.send(sender_id, "thank you, '%s' yourself! type 'quiz' to start it :)" % message, callback=receipt)
     page.typing_off(sender_id)
@@ -141,7 +141,7 @@ def callback_answer(payload, event):
     "A callback for any ANSWER payload we get. "
     sender_id = event.sender_id
     prefix, data = decode_payload(payload)
-    print('Got ANSWER: {} (correct? {})'.format(data, 'YES' if data['correct'] else 'NON'))
+    logger.debug('Got ANSWER: {} (correct? {})'.format(data, 'YES' if data['correct'] else 'NON'))
     page.send(sender_id, "Your reply was {}".format('CORRECT' if data['correct'] else 'INCORRECT :('))
     # TODO check how many we have correct
     if data['correct']:
@@ -155,7 +155,7 @@ def delivery_handler(event):
     sender_id = event.sender_id
     watermark = event.delivery.get('watermark', None)
     messages = event.delivery.get('mids', [])
-    #print('Message from me ({}) delivered: {}'.format(sender_id, messages or watermark))
+    #logger.debug('Message from me ({}) delivered: {}'.format(sender_id, messages or watermark))
 
 @page.handle_read
 def read_handler(event):
@@ -164,20 +164,17 @@ def read_handler(event):
     """
     sender_id = event.sender_id
     watermark = event.read.get('watermark', None)
-    #print('Message from me ({}) has been read: {}'.format(sender_id, watermark))
+    #logger.debug('Message from me ({}) has been read: {}'.format(sender_id, watermark))
 
 optin_handler = message_handler
 
 def getquizdata():
     "Background task to periodically update quizes"
     global quizes, data
-    while True:
-        logger.debug(
-            "Get new quizquestions, currently we have {!r}".format(quizes)
-        )
-        quizes = data.quizquestions()
-        #await asyncio.sleep(600.0)
-        time.sleep(5.0)
+    logger.debug(
+        "Get new quizquestions, currently we have {!r}".format(quizes)
+    )
+    quizes = data.quizquestions()
 
 class Config(object):
     JOBS = [
