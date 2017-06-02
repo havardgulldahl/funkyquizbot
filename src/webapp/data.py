@@ -1,5 +1,8 @@
 
 import logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
 from envparse import env, ConfigurationError # pip install envparse
 import pygsheets # pip install pygsheets
 
@@ -19,7 +22,7 @@ class QuizQuestion:
         self.question = question
         self.correct = answer
         self.incorrectanswers = [a for a in incorrectanswers[0] if len(a) > 0] # remove empty values
-        #logging.debug("created QuizQuestion: %r %r %r", question, answer, self.incorrectanswers)
+        #logger.debug("created QuizQuestion: %r %r %r", question, answer, self.incorrectanswers)
 
     def __str__(self):
         return '#{} - {}? {} ({} decoys)'.format(self.qid, 
@@ -35,12 +38,12 @@ class Datastore:
     def quizquestions(self):
         "Get quiz questsions"
         sheet = self.g.open_by_key(env('SHEET_ID_QUIZ')).sheet1
-        logging.debug('about to get new quiz questions')
+        logger.debug('about to get new quiz questions')
         return [QuizQuestion(i, row[0], row[1], row[2:]) for i, row in enumerate(sheet.get_all_values()) if not row[0].startswith('#')]
 
     def quizprizes(self):
         "Get quiz prizes"
         sheet = self.g.open_by_key(env('SHEET_ID_PRIZES')).sheet1
-        logging.debug('about to get new quiz prizes')
+        logger.debug('about to get new quiz prizes')
         return sheet.get_all_values()
 

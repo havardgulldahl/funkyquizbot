@@ -1,42 +1,31 @@
 #!/usr/bin/env python
 
-import os.path
-import tempfile
 import time
 import random
-import pathlib
-from urllib.parse import quote
 
-import asyncio
-import uuid
 import json
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-from asyncio import coroutine # requires python>3.5
+from envparse import env, ConfigurationError # pip install envparse
+env.read_envfile()
 
-#from aiohttp import web # pip install aiohttp
 from flask import Flask, request
 from flask_apscheduler import APScheduler # pip install Flask-APScheduler
-
-from envparse import env, ConfigurationError # pip install envparse
 
 from data import Datastore
 
 import fbmq
 from fbmq import Attachment, Template, QuickReply
 
-env.read_envfile()
 
 APIVERSION = '0.1'
 SECRET_CHALLENGE = env('SECRET_CHALLENGE')
 SECRET_URI = '/{}'.format(env('SECRET_URI'))
 PAGE_ACCESS_TOKEN = env('PAGE_ACCESS_TOKEN')
 
-loop = asyncio.get_event_loop()
-#app = web.Application(loop=loop)
 app = Flask(__name__)
 page = fbmq.Page(PAGE_ACCESS_TOKEN)
 
@@ -46,7 +35,6 @@ data = None
 @app.route(SECRET_URI, methods=['GET'])
 def handle_verification():
     'Get a GET request and try to verify it'
-    #audioname = request.match_info.get('audioname', None) # match path string, see the respective route
     logger.debug('About to read a challenge')
     token = request.args.get('hub.verify_token')
     if request.args.get('hub.mode', '') == 'subscribe' and \
@@ -197,4 +185,4 @@ if __name__ == '__main__':
     scheduler.init_app(app)
     scheduler.start()
     # start server
-    app.run(host='0.0.0.0', port=8000, debug=True, threaded=True)
+    app.run(host='0.0.0.0', port=8000, debug=False, threaded=True)
