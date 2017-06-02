@@ -194,7 +194,7 @@ class Config(object):
     JOBS = [
         {
             'id': 'getquizdata',
-            'func': 'webapp.app:getquizdata',
+            'func': 'funkyquizbot.app:getquizdata',
             'args': (),
             'trigger': 'interval',
             'seconds': 60
