@@ -1,3 +1,5 @@
+from datetime import datetime
+from typing import Dict, Tuple, List, Type # requires python > 3.5
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
@@ -13,16 +15,25 @@ SHEET_ID_GIPHYS = '' # put it in .env
 
 env.read_envfile() # read .env
 
+# type annotation
+Cells = List[str]
 
-class QuizQuestion:
+class Row:
+    "A low level wrapper for storing rows from a sheet. Subclass this"
+    def __init__(self, rowid: int, name: str, timestamp: str, cells: Cells):
+        self.id = rowid
+        self.name = name
+        self.timestamp = timestamp
+        self.cells = cells
+
+class QuizQuestion(Row):
     "A question with one correct and multiple incorrect answers"
-
-    def __init__(self, qid, question, answer, *incorrectanswers):
-        self.qid = qid # question id
-        self.question = question
-        self.correct = answer
-        self.incorrectanswers = [a for a in incorrectanswers[0] if len(a) > 0] # remove empty values
-        #logger.debug("created QuizQuestion: %r %r %r", question, answer, self.incorrectanswers)
+    def __init__(self, rowid: int, name: str, timestamp: str, cells: Cells):
+        super().__init__(rowid, name, timestamp, cells)
+        self.qid = rowid # question id
+        self.question = cells[0]
+        self.correct = cells[1]
+        self.incorrectanswers = [a for a in cells[2:] if len(a) > 0] # remove empty values
 
     def __str__(self):
         return '#{} - {}? {} ({} decoys)'.format(self.qid, 
@@ -37,13 +48,15 @@ class Datastore:
 
     def quizquestions(self):
         "Get quiz questsions"
-        sheet = self.g.open_by_key(env('SHEET_ID_QUIZ')).sheet1
-        logger.debug('about to get new quiz questions')
-        return [QuizQuestion(i, row[0], row[1], row[2:]) for i, row in enumerate(sheet.get_all_values()) if not row[0].startswith('#')]
+        return self._getlines(env('SHEET_ID_QUIZ'), 'quiz questions', QuizQuestion)
 
     def quizprizes(self):
         "Get quiz prizes"
-        sheet = self.g.open_by_key(env('SHEET_ID_PRIZES')).sheet1
-        logger.debug('about to get new quiz prizes')
-        return sheet.get_all_values()
+        return self._getlines(env('SHEET_ID_PRIZES'), 'quiz prizes', Row)
 
+    def _getlines(self, sheetId: str, name: str, factory: Type[Row]):
+        "helper method to get data from gsheets"
+        sheet = self.g.open_by_key(sheetId).sheet1 # get first sheet
+        logger.debug('about to get new %s', name)
+        timestamp = datetime.now().isoformat()
+        return [factory(i, name, timestamp, row) for i, row in enumerate(sheet.get_all_values()) if not row[0].startswith('#')]
