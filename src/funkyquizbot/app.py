@@ -15,7 +15,7 @@ env.read_envfile()
 from flask import Flask, request
 from flask_apscheduler import APScheduler # pip install Flask-APScheduler
 
-from .data import Datastore
+from funkyquizbot.data import Datastore
 
 import fbmq
 from fbmq import Attachment, Template, QuickReply
@@ -29,7 +29,7 @@ PAGE_ACCESS_TOKEN = env('PAGE_ACCESS_TOKEN')
 app = Flask(__name__)
 page = fbmq.Page(PAGE_ACCESS_TOKEN)
 
-quizes = []
+quizes = quizprizes = giphys = []
 data = None
 
 @app.route(SECRET_URI, methods=['GET'])
@@ -185,10 +185,20 @@ optin_handler = message_handler
 def getquizdata():
     "Background task to periodically update quizes"
     global quizes, data
-    logger.debug(
-        "Get new quizquestions, currently we have {!r}".format(quizes)
-    )
+    logger.debug("Get new quizquestions, currently we have {!r}".format(quizes))
     quizes = data.quizquestions()
+
+def getquizprizes():
+    "Background task to periodically update quizesprizes"
+    global quizprizes, data
+    logger.debug("Get new quizprizes, currently we have {!r}".format(quizprizes))
+    quizprizes = data.quizprizes()
+
+def getgiphys():
+    "Background task to periodically update giphys"
+    global giphys, data
+    logger.debug("Get new giphys, currently we have {!r}".format(giphys))
+    giphys = data.giphys()
 
 class Config(object):
     JOBS = [
@@ -197,7 +207,21 @@ class Config(object):
             'func': 'funkyquizbot.app:getquizdata',
             'args': (),
             'trigger': 'interval',
-            'seconds': 60
+            'minutes': 60
+        },
+        {
+            'id': 'getquizprizes',
+            'func': 'funkyquizbot.app:getquizprizes',
+            'args': (),
+            'trigger': 'interval',
+            'hours': 6
+        },
+        {
+            'id': 'getgiphys',
+            'func': 'funkyquizbot.app:getgiphys',
+            'args': (),
+            'trigger': 'interval',
+            'hours': 6
         },
     ]
     SCHEDULER_API_ENABLED = False # REST api to jobs
@@ -213,3 +237,6 @@ scheduler.start()
 if __name__ == '__main__':
     # start server
     app.run(host='0.0.0.0', port=8000, debug=False, threaded=True)
+    getquizdata()
+    getquizprizes()
+    getgiphys()
