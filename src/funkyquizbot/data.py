@@ -41,6 +41,16 @@ class QuizQuestion(Row):
                                                  self.correct, 
                                                  len(self.incorrectanswers))
 
+class Giphy(Row):
+    "A url to an animated gif, with zero or more tags"
+    def __init__(self, rowid: int, name: str, timestamp: str, cells: Cells):
+        super().__init__(rowid, name, timestamp, cells)
+        self.url = cells[0]
+        self.tags = [a for a in cells[1:] if len(a) > 0] # remove empty values
+
+    def __str__(self):
+        return 'gif {} - {} {}'.format(self.id, self.url, self.tags)
+
 class Datastore:
     "A wrapper for functions to get different datasets, e.g. for quiz, prizes etc "
     def __init__(self):
@@ -53,6 +63,10 @@ class Datastore:
     def quizprizes(self):
         "Get quiz prizes"
         return self._getlines(env('SHEET_ID_PRIZES'), 'quiz prizes', Row)
+
+    def giphys(self):
+        "Get giphys "
+        return self._getlines(env('SHEET_ID_GIPHYS'), 'Giphys', Giphy)
 
     def _getlines(self, sheetId: str, name: str, factory: Type[Row]):
         "helper method to get data from gsheets"
