@@ -3,7 +3,7 @@
 import time
 import random
 
-import json
+import pickle
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
@@ -14,8 +14,6 @@ env.read_envfile()
 
 from flask import Flask, request
 from flask_apscheduler import APScheduler # pip install Flask-APScheduler
-
-from funkyquizbot.data import Datastore
 
 import fbmq
 from fbmq import Attachment, Template, QuickReply
@@ -30,7 +28,6 @@ app = Flask(__name__)
 page = fbmq.Page(PAGE_ACCESS_TOKEN)
 
 quizes = quizprizes = giphys = []
-data = None
 
 @app.route(SECRET_URI, methods=['GET'])
 def handle_verification():
@@ -182,23 +179,32 @@ def read_handler(event):
 
 optin_handler = message_handler
 
+def getpickles(env_key):
+    "Helper to unpickle from file at env_key, returns empty list on errors"
+    try:
+        return pickle.load(open(env(env_key), 'rb'))
+    except FileNotFoundError:
+        logger.warning('Could not load cached values from "{}"->{!r}'.format(env_key, env(env_key)))
+        return []
+
 def getquizdata():
     "Background task to periodically update quizes"
-    global quizes, data
+    global quizes
     logger.debug("Get new quizquestions, currently we have {!r}".format(quizes))
-    quizes = data.quizquestions()
+    logger.debug("Get new quizquestions, from {!r}".format(env('CACHEFILE_QUIZQUESTIONS')))
+    quizes = getpickles('CACHEFILE_QUIZQUESTIONS')
 
 def getquizprizes():
     "Background task to periodically update quizesprizes"
-    global quizprizes, data
+    global quizprizes
     logger.debug("Get new quizprizes, currently we have {!r}".format(quizprizes))
-    quizprizes = data.quizprizes()
+    quizprizes = getpickles('CACHEFILE_QUIZPRIZES')
 
 def getgiphys():
     "Background task to periodically update giphys"
-    global giphys, data
+    global giphys
     logger.debug("Get new giphys, currently we have {!r}".format(giphys))
-    giphys = data.giphys()
+    giphys = getpickles('CACHEFILE_GIPHYS')
 
 class Config(object):
     JOBS = [
@@ -228,7 +234,6 @@ class Config(object):
     SCHEDULER_TIMEZONE = 'Europe/Oslo'
 
 app.config.from_object(Config())
-data = Datastore()
 # get quizes
 scheduler = APScheduler()
 scheduler.init_app(app)
@@ -236,7 +241,7 @@ scheduler.start()
 
 if __name__ == '__main__':
     # start server
-    app.run(host='0.0.0.0', port=8000, debug=False, threaded=True)
     getquizdata()
     getquizprizes()
     getgiphys()
+    app.run(host='0.0.0.0', port=8000, debug=False, threaded=True)
