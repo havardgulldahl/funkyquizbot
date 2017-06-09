@@ -41,6 +41,26 @@ class QuizQuestion(Row):
                                                  self.correct, 
                                                  len(self.incorrectanswers))
 
+class QuizPrize(Row):
+    "A prize - an url to a secret video clip or image + embargo datestamp"
+    def __init__(self, rowid: int, name: str, timestamp: str, cells: Cells):
+        super().__init__(rowid, name, timestamp, cells)
+        self.url = cells[0]
+        self.media_type = cells[1]
+        self.embargo = datetime.strptime(cells[2], "%Y-%m-%d")
+        #self.extra = [a for a in cells[2:] if len(a) > 0] # remove empty values
+
+    @property
+    def is_embargoed(self):
+        "return whether this prize is still embargoed or not. boolean"
+        return datetime.now() < self.embargo
+        
+    def __str__(self):
+        return '#{} - {} ({}) embargo: {}'.format(self.id, 
+                                                  self.url,
+                                                  self.media_type, 
+                                                  self.embargo)
+
 class Giphy(Row):
     "A url to an animated gif, with zero or more tags"
     def __init__(self, rowid: int, name: str, timestamp: str, cells: Cells):
@@ -62,7 +82,7 @@ class Datastore:
 
     def quizprizes(self):
         "Get quiz prizes"
-        return self._getlines(env('SHEET_ID_PRIZES'), 'quiz prizes', Row)
+        return self._getlines(env('SHEET_ID_PRIZES'), 'quiz prizes', QuizPrize)
 
     def giphys(self):
         "Get giphys "
