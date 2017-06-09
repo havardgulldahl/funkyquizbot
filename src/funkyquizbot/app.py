@@ -25,6 +25,14 @@ SECRET_URI = '/{}'.format(env('SECRET_URI'))
 PAGE_ACCESS_TOKEN = env('PAGE_ACCESS_TOKEN')
 
 app = Flask(__name__)
+if app.debug is not True:   
+    from logging.handlers import RotatingFileHandler
+    file_handler = RotatingFileHandler('python.log', maxBytes=1024 * 1024 * 100, backupCount=20)
+    file_handler.setLevel(logging.INFO)
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    file_handler.setFormatter(formatter)
+    app.logger.addHandler(file_handler)
+
 page = fbmq.Page(PAGE_ACCESS_TOKEN)
 
 quizes = quizprizes = giphys = []
