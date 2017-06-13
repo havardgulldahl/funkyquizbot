@@ -27,6 +27,13 @@ class Row:
         self.timestamp = timestamp
         self.cells = cells
 
+    @staticmethod
+    def must_skip(cells: Cells):
+        if len(cells) == 0: return True
+        if len(cells[0].strip()) == 0: return True
+        if cells[0].strip().startswith('#'): return True
+        return False
+
 class QuizQuestion(Row):
     "A question with one correct and multiple incorrect answers"
     def __init__(self, rowid: int, name: str, timestamp: str, cells: Cells):
@@ -48,7 +55,14 @@ class QuizPrize(Row):
         super().__init__(rowid, name, timestamp, cells)
         self.url = cells[0]
         self.media_type = cells[1]
-        self.embargo = datetime.strptime(cells[2], "%Y-%m-%d")
+        self.embargo = None
+        try:
+            self.embargo = datetime.strptime(cells[2], "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            try:
+                self.embargo = datetime.strptime(cells[2], "%Y-%m-%d")
+            except ValueError:
+                pass
         #self.extra = [a for a in cells[2:] if len(a) > 0] # remove empty values
 
     @property
@@ -97,4 +111,4 @@ class Datastore:
         sheet = self.g.open_by_key(sheetId).sheet1 # get first sheet
         logger.debug('about to get new %s', name)
         timestamp = datetime.now().isoformat()
-        return [factory(i, name, timestamp, row) for i, row in enumerate(sheet.get_all_values()) if not row[0].startswith('#')]
+        return [factory(i, name, timestamp, row) for i, row in enumerate(sheet.get_all_values()) if not Row.must_skip(row) ]
