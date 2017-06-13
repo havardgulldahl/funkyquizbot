@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Dict, Tuple, List, Type # requires python > 3.5
+import enum
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
@@ -60,13 +61,16 @@ class QuizPrize(Row):
                                                   self.url,
                                                   self.media_type, 
                                                   self.embargo)
-
 class Giphy(Row):
-    "A url to an animated gif, with zero or more tags"
+    """A url to an animated gif, with zero or more tags
+    Expected format:
+        # url | # context: WRONG/CORRECT | # tags - zero or more cells
+    """
     def __init__(self, rowid: int, name: str, timestamp: str, cells: Cells):
         super().__init__(rowid, name, timestamp, cells)
         self.url = cells[0]
-        self.tags = [a for a in cells[1:] if len(a) > 0] # remove empty values
+        self.context = cells[1]
+        self.tags = [a for a in cells[2:] if len(a) > 0] # remove empty values
 
     def __str__(self):
         return 'gif {} - {} {}'.format(self.id, self.url, self.tags)

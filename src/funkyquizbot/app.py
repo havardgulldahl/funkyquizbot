@@ -119,6 +119,7 @@ def quiz(event, previous=None):
             return
     # ask a question
     try:
+        global quizes
         quiz = random.choice(quizes) # get a random quiz
         while quiz.qid in previous:
             quiz = random.choice(quizes) # we've had this ques before, get a new onone
@@ -149,7 +150,20 @@ def send_prize(event, previous=None):
     page.typing_on(sender_id)
     page.send(sender_id, "wow, you're on a nice streak. Here's a prize!")
     # Send a gif prize
-    page.send(sender_id, Attachment.Image('https://media.giphy.com/media/3o7bu57lYhUEFiYDSM/giphy.gif'))
+    global quizprizes
+    prize = random.choice(quizprizes)
+    while not prize.is_embargoed: # make sure we can publish this
+        prize = random.choice(quizprizes)
+    if prize.media_type == 'image':
+        att = Attachment.Image(prize.url)
+    elif prize.media_type == 'video':
+        att = Attachment.Video(prize.url)
+    page.send(sender_id, att)
+
+def get_giphy(context):
+    "Get a random giphy that fits the context 'CORRECT'/'WRONG'"
+    global giphys
+    return random.choice([g for g in giphys if g.context == context])
 
 @page.callback(['ANSWER_.+'])
 def callback_answer(payload, event):
@@ -159,6 +173,10 @@ def callback_answer(payload, event):
     prefix, metadata = decode_payload(payload)
     logger.debug('Got ANSWER: {} (correct? {})'.format(metadata, 'YES' if metadata['correct'] else 'NON'))
     page.send(sender_id, "Your reply was {}".format('CORRECT' if metadata['correct'] else 'INCORRECT :('))
+    if random.random() > 0.9: # ten percent of the time, send a gif
+        g = get_giphy('CORRECT' if metadata['correct'] else 'WRONG')
+        page.send(sender_id, Attachment.Image(g.url))
+
     # TODO check how many we have correct
     if metadata['correct']:
         # answer is correct, you may continue
