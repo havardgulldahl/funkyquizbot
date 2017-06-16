@@ -68,6 +68,7 @@ class QuizPrize(Row):
     @property
     def is_embargoed(self):
         "return whether this prize is still embargoed or not. boolean"
+        if self.embargo is None: return False
         return datetime.now() < self.embargo
         
     def __str__(self):
