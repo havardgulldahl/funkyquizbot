@@ -14,6 +14,7 @@ from envparse import env, ConfigurationError # pip install envparse
 env.read_envfile()
 
 from flask import Flask, request, g, current_app
+#from flask_apscheduler import APScheduler # pip install Flask-APScheduler
 from werkzeug.local import LocalProxy
 
 import fbmq
@@ -184,7 +185,6 @@ def send_prize(event, previous=None):
 
 def get_giphy(context):
     "Get a random giphy that fits the context 'CORRECT'/'WRONG'"
-    return random.choice([x for x in giphys if x.context == context])
 
 @page.callback(['ANSWER_.+'])
 def callback_answer(payload, event):
@@ -252,6 +252,49 @@ def getgiphys():
     app.logger.debug("Read {} questions".format(len(giphys)))
     return giphys
 
+#with app.app_context():
+    ## within this block, current_app points to app.
+    #print(current_app.name)
+    #app.before_first_request(getquizdata)
+    #app.before_first_request(getquizprizes)
+    #app.before_first_request(getgiphys)
+
+class Config(object):
+    JOBS = [
+        {
+            'id': 'getquizdata',
+            'func': 'funkyquizbot.app:getquizdata',
+            'args': (),
+            'trigger': 'interval',
+            'minutes': 60
+        },
+        {
+            'id': 'getquizprizes',
+            'func': 'funkyquizbot.app:getquizprizes',
+            'args': (),
+            'trigger': 'interval',
+            'hours': 6
+        },
+        {
+            'id': 'getgiphys',
+            'func': 'funkyquizbot.app:getgiphys',
+            'args': (),
+            'trigger': 'interval',
+            'hours': 6
+        },
+    ]
+    SCHEDULER_API_ENABLED = False # REST api to jobs
+    SCHEDULER_TIMEZONE = 'Europe/Oslo'
+
+#app.config.from_object(Config())
+# get quizes
+#scheduler = APScheduler()
+#scheduler.init_app(app)
+#scheduler.start()
+
 if __name__ == '__main__':
     # start server
+    #getquizdata()
+    #getquizprizes()
+    #getgiphys()
     app.run(host='0.0.0.0', port=8000, debug=False, threaded=True)
