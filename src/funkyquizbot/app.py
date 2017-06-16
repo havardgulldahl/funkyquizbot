@@ -185,6 +185,10 @@ def send_prize(event, previous=None):
 
 def get_giphy(context):
     "Get a random giphy that fits the context 'CORRECT'/'WRONG'"
+    try:
+        return random.choice([x for x in giphys if x.context == context])
+    except IndexError: # no giphs available
+        return None
 
 @page.callback(['ANSWER_.+'])
 def callback_answer(payload, event):
