@@ -1,4 +1,3 @@
 pygsheets
 envparse
 git+git://github.com/havardgulldahl/fbmq.git#egg=fbmq
-Flask-APScheduler
