@@ -4,6 +4,7 @@ import time
 import random
 
 import pickle
+import json
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
@@ -14,10 +15,13 @@ env.read_envfile()
 
 from flask import Flask, request, g, current_app
 #from flask_apscheduler import APScheduler # pip install Flask-APScheduler
+from werkzeug.local import LocalProxy
 
 import fbmq
 from fbmq import Attachment, Template, QuickReply
 
+from funkyquizbot import data
+from funkyquizbot.data import Datastore
 
 APIVERSION = '0.1'
 SECRET_CHALLENGE = env('SECRET_CHALLENGE')
@@ -34,9 +38,29 @@ app.logger.addHandler(file_handler)
 
 page = fbmq.Page(PAGE_ACCESS_TOKEN)
 
-with app.app_context():
-    # within this block, current_app points to app.
-    g.quizes = g.quizprizes = g.giphys = []
+def setup_quizes():
+    quizes = getattr(g, 'quizes', None)
+    if quizes is None:
+        quizes = g.quizes = getquizdata()
+    return quizes
+
+quizes = LocalProxy(setup_quizes)
+
+def setup_quizprizes():
+    p = getattr(g, 'quizprizes', None)
+    if p is None:
+        p = g.quizprizes = getquizprizes()
+    return p
+
+quizprizes = LocalProxy(setup_quizprizes)
+
+def setup_giphys():
+    giphys = getattr(g, 'giphys', None)
+    if giphys is None:
+        giphys = g.giphys = getgiphys()
+    return giphys
+
+giphys = LocalProxy(setup_giphys)
 
 @app.route(SECRET_URI, methods=['GET'])
 def handle_verification():
@@ -120,9 +144,9 @@ def quiz(event, previous=None):
             return
     # ask a question
     try:
-        quiz = random.choice(g.quizes) # get a random quiz
+        quiz = random.choice(quizes) # get a random quiz
         while quiz.qid in previous:
-            quiz = random.choice(g.quizes) # we've had this ques before, get a new onone
+            quiz = random.choice(quizes) # we've had this ques before, get a new onone
     except IndexError:
         # no quizes in list, yikes
         page.send(sender_id, "We have no available quizes for you, pls try again later 8)")
@@ -150,9 +174,9 @@ def send_prize(event, previous=None):
     page.typing_on(sender_id)
     page.send(sender_id, "wow, you're on a nice streak. Here's a prize!")
     # Send a gif prize
-    prize = random.choice(g.quizprizes)
+    prize = random.choice(quizprizes)
     while not prize.is_embargoed: # make sure we can publish this
-        prize = random.choice(g.quizprizes)
+        prize = random.choice(quizprizes)
     if prize.media_type == 'image':
         att = Attachment.Image(prize.url)
     elif prize.media_type == 'video':
@@ -161,7 +185,7 @@ def send_prize(event, previous=None):
 
 def get_giphy(context):
     "Get a random giphy that fits the context 'CORRECT'/'WRONG'"
-    return random.choice([x for x in g.giphys if x.context == context])
+    return random.choice([x for x in giphys if x.context == context])
 
 @page.callback(['ANSWER_.+'])
 def callback_answer(payload, event):
@@ -172,8 +196,8 @@ def callback_answer(payload, event):
     app.logger.debug('Got ANSWER: {} (correct? {})'.format(metadata, 'YES' if metadata['correct'] else 'NON'))
     page.send(sender_id, "Your reply was {}".format('CORRECT' if metadata['correct'] else 'INCORRECT :('))
     if random.random() > 0.9: # ten percent of the time, send a gif
-        g = get_giphy('CORRECT' if metadata['correct'] else 'WRONG')
-        page.send(sender_id, Attachment.Image(g.url))
+        giph = get_giphy('CORRECT' if metadata['correct'] else 'WRONG')
+        page.send(sender_id, Attachment.Image(giph.url))
 
     # TODO check how many we have correct
     if metadata['correct']:
@@ -213,27 +237,28 @@ def getpickles(env_key):
 
 def getquizdata():
     "Background task to periodically update quizes"
-    app.logger.debug("Get new quizquestions, currently we have {!r}".format(g.get('quizes', None)))
-    app.logger.debug("Get new quizquestions, from {!r}".format(env('CACHEFILE_QUIZQUESTIONS')))
-    g.quizes = getpickles('CACHEFILE_QUIZQUESTIONS')
-    app.logger.debug("Read {} questions".format(len(g.get('quizes', []))))
+    quizes = getpickles('CACHEFILE_QUIZQUESTIONS')
+    app.logger.debug("Read {} questions".format(len(quizes)))
+    return quizes
 
 def getquizprizes():
     "Background task to periodically update quizesprizes"
-    app.logger.debug("Get new quizprizes, currently we have {!r}".format(g.get('quizprizes', None)))
-    g.quizprizes = getpickles('CACHEFILE_QUIZPRIZES')
+    quizprizes = getpickles('CACHEFILE_QUIZPRIZES')
+    app.logger.debug("Read {} questions".format(len(quizprizes)))
+    return quizprizes
 
 def getgiphys():
     "Background task to periodically update giphys"
-    app.logger.debug("Get new giphys, currently we have {!r}".format(g.get('giphys', None)))
-    g.giphys = getpickles('CACHEFILE_GIPHYS')
+    giphys = getpickles('CACHEFILE_GIPHYS')
+    app.logger.debug("Read {} questions".format(len(giphys)))
+    return giphys
 
-with app.app_context():
-    # within this block, current_app points to app.
-    print(current_app.name)
-    app.before_first_request(getquizdata)
-    app.before_first_request(getquizprizes)
-    app.before_first_request(getgiphys)
+#with app.app_context():
+    ## within this block, current_app points to app.
+    #print(current_app.name)
+    #app.before_first_request(getquizdata)
+    #app.before_first_request(getquizprizes)
+    #app.before_first_request(getgiphys)
 
 class Config(object):
     JOBS = [
