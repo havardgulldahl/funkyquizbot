@@ -84,7 +84,7 @@ class Giphy(Row):
     def __init__(self, rowid: int, name: str, timestamp: str, cells: Cells):
         super().__init__(rowid, name, timestamp, cells)
         self.url = cells[0]
-        self.context = cells[1]
+        self.context = cells[1].strip().upper()
         self.tags = [a for a in cells[2:] if len(a) > 0] # remove empty values
 
     def __str__(self):

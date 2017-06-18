@@ -61,6 +61,14 @@ def setup_giphys():
 
 giphys = LocalProxy(setup_giphys)
 
+def setup_seq_dupes():
+    seen_seq = getattr(g, 'seen_seq', None)
+    if seen_seq is None:
+        seen_seq = g.seen_seq = {}
+    return seen_seq
+
+SEEN_SEQ = LocalProxy(setup_seq_dupes)
+
 @app.route(SECRET_URI, methods=['GET'])
 def handle_verification():
     'Get a GET request and try to verify it'
@@ -110,19 +118,35 @@ def decode_payload(s):
 def message_handler(event):
     """:type event: fbmq.Event"""
     sender_id = event.sender_id
-    message = event.message_text
+    recipient_id = event.recipient_id
+    time_of_message = event.timestamp
+    message = event.message
+    message_text = message.get("text")
     app.logger.debug('New msg from %s: %r', sender_id, message)
+    seq = message.get("seq", 0)
+    message_id = message.get("mid")
+    app_id = message.get("app_id")
+    metadata = message.get("metadata")
+    seq_id = sender_id + ':' + recipient_id
+
+    app.logger.debug('previous sequence ids: {!r}'.format(SEEN_SEQ))
+    if SEEN_SEQ.get(seq_id, -1) >= seq:
+        app.logger.info("Ignore duplicated request")
+        return None
+    else:
+        app.logger.debug('new sequence id registered {} -> {}'.format(seq_id, seq))
+        SEEN_SEQ[seq_id] = seq
     page.typing_on(sender_id)
-    if message is None:
+    if message_text is None:
         app.logger.debug("message is none, is this a thumbs up?")
-    elif message.lower() in ['quiz',]:
+    elif message_text.lower() in ['quiz',]:
         quiz(event)
     elif event.is_postback:
         app.logger.debug("this is postback, someone else must handle it")
     elif event.is_quick_reply:
         app.logger.debug("this is quickreply, someone else must handle it")
     else:
-        page.send(sender_id, "thank you, '%s' yourself! type 'quiz' to start it :)" % message, callback=receipt)
+        page.send(sender_id, "thank you, '%s' yourself! type 'quiz' to start it :)" % message_text, callback=receipt)
 
 def quiz(event, previous=None):
     "start or continue a quiz"
@@ -137,10 +161,10 @@ def quiz(event, previous=None):
         page.send(sender_id, "Welcome to a brand new quiz! If you get seven in a row, you get a prize")
         previous = [ ]  # a list to keep previous quiz id's 
     else:
-        if len(previous) >= 7:
-            # we have made 7 in a row
+        if len(previous) == 7:
+            app.logger.debug('we have made 7 in a row, send a prize')
             send_prize(event, previous)
-            return
+            return None
     # ask a question
     try:
         quiz = random.choice(quizes) # get a random quiz
@@ -173,9 +197,11 @@ def send_prize(event, previous=None):
     page.typing_on(sender_id)
     page.send(sender_id, "wow, you're on a nice streak. Here's a prize!")
     # Send a gif prize
-    prize = random.choice(quizprizes)
-    while not prize.is_embargoed: # make sure we can publish this
-        prize = random.choice(quizprizes)
+    try:
+        prize = random.choice([q for q in quizprizes if not q.is_embargoed])
+    except IndexError:
+        app.logger.warning('No prizes that are not embargoed!')
+        page.send(sender_id, '8)')
     if prize.media_type == 'image':
         att = Attachment.Image(prize.url)
     elif prize.media_type == 'video':
@@ -189,24 +215,27 @@ def get_giphy(context):
     except IndexError: # no giphs available
         return None
 
-@page.callback(['ANSWER_.+'])
+@page.callback(['ANSWER_.+'], types=['QUICK_REPLY'])
 def callback_answer(payload, event):
     "A callback for any ANSWER payload we get. "
     sender_id = event.sender_id
     page.typing_on(sender_id)
     prefix, metadata = decode_payload(payload)
     app.logger.debug('Got ANSWER: {} (correct? {})'.format(metadata, 'YES' if metadata['correct'] else 'NON'))
-    page.send(sender_id, "Your reply was {}".format('CORRECT' if metadata['correct'] else 'INCORRECT :('))
+    page.send(sender_id, "That's {}".format('CORRECT' if metadata['correct'] else 'INCORRECT :('))
     if random.random() > 0.9: # ten percent of the time, send a gif
         giph = get_giphy('CORRECT' if metadata['correct'] else 'WRONG')
-        page.send(sender_id, Attachment.Image(giph.url))
+        if giph is not None:
+            page.send(sender_id, Attachment.Image(giph.url))
 
     # TODO check how many we have correct
     if metadata['correct']:
         # answer is correct, you may continue
         _prev = metadata['previous']
-        page.send(sender_id, "you have {} correct questions, only {} to go!".format(len(_prev),
-                                                                                    7-len(_prev)))
+        notfinished = 7 > len(_prev)
+        if notfinished:
+            page.send(sender_id, "you have {} correct questions, only {} to go!".format(len(_prev),
+                                                                                        7-len(_prev)))
         quiz(event, _prev)
 
 @page.handle_delivery
@@ -246,13 +275,13 @@ def getquizdata():
 def getquizprizes():
     "Background task to periodically update quizesprizes"
     quizprizes = getpickles('CACHEFILE_QUIZPRIZES')
-    app.logger.debug("Read {} questions".format(len(quizprizes)))
+    app.logger.debug("Read {} prizes".format(len(quizprizes)))
     return quizprizes
 
 def getgiphys():
     "Background task to periodically update giphys"
     giphys = getpickles('CACHEFILE_GIPHYS')
-    app.logger.debug("Read {} questions".format(len(giphys)))
+    app.logger.debug("Read {} giphys".format(len(giphys)))
     return giphys
 
 if __name__ == '__main__':
