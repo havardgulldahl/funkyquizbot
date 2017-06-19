@@ -56,19 +56,23 @@ class QuizPrize(Row):
         self.url = cells[0]
         self.media_type = cells[1]
         self.embargo = None
-        try:
-            self.embargo = datetime.strptime(cells[2], "%Y-%m-%d %H:%M:%S")
-        except ValueError:
-            try:
-                self.embargo = datetime.strptime(cells[2], "%Y-%m-%d")
-            except ValueError:
-                pass
+        def parse_date(s: str) -> datetime:
+            formats = ['%d.%m.%Y kl. %H.%M.%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d']
+            for f in formats:
+                try:
+                    return datetime.strptime(s, f)
+                except ValueError:
+                    pass # try next
+            logger.warn('could not parse date format: {!r}'.format(s))
+            return None # unknown date format
+        self.embargo = parse_date(cells[2])
         #self.extra = [a for a in cells[2:] if len(a) > 0] # remove empty values
 
     @property
     def is_embargoed(self):
         "return whether this prize is still embargoed or not. boolean"
-        if self.embargo is None: return False
+        if self.embargo is None:
+            return False
         return datetime.now() < self.embargo
         
     def __str__(self):
