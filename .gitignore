@@ -106,3 +106,4 @@ share/
 credentials.json
 
 *.pickle
+.vscode/settings.json
