@@ -36,6 +36,8 @@ file_handler.setFormatter(formatter)
 app.logger.addHandler(file_handler)
 
 page = fbmq.Page(PAGE_ACCESS_TOKEN)
+page.greeting("Welcome!")
+page.show_starting_button("GET_STARTED_BUTTON")
 
 def setup_quizes():
     quizes = getattr(g, 'quizes', None)
@@ -114,6 +116,11 @@ def decode_payload(s):
     prefix, data = s.split('___', 2)
     return (prefix, json.loads(data))
 
+@page.callback(['GET_STARTED_BUTTON'])
+def get_started_callback(payload, event):
+    app.logger.debug('Get started button: {!r} - {!r}')
+    menu(event, menutext="Yea, let's do something!")
+
 @page.handle_message
 def message_handler(event):
     """:type event: fbmq.Event"""
@@ -146,7 +153,35 @@ def message_handler(event):
     elif event.is_quick_reply:
         app.logger.debug("this is quickreply, someone else must handle it")
     else:
-        page.send(sender_id, "thank you, '%s' yourself! type 'quiz' to start it :)" % message_text, callback=receipt)
+        menu(event)
+        #page.send(sender_id, "thank you, '%s' yourself! type 'quiz' to start it :)" % message_text, callback=receipt)
+
+def menu(event, menutext=None):
+    "show a menu of available options"
+    if menutext is None:
+        menutext = "Yo! What are you up to?"
+    sender_id = event.sender_id
+    message = event.message_text
+    MENU_OPTIONS = {'startquiz':'Start quiz!'}
+    buttons = []
+    for value,text in MENU_OPTIONS.items():
+        buttons.append(
+            QuickReply(title=text, payload=encode_payload('MENU', {'menu':value}))
+        )
+    # TODO: quick_replies is limited to 11, prune incorrect answers if too many
+    app.logger.debug("sending menu: %s", buttons)
+    page.send(sender_id, menutext, quick_replies=buttons)
+    page.typing_off(sender_id)
+
+@page.callback(['MENU_.+'], types=['QUICK_REPLY'])
+def callback_menu(payload, event):
+    "A callback for any MENU payload we get. "
+    sender_id = event.sender_id
+    page.typing_on(sender_id)
+    prefix, metadata = decode_payload(payload)
+    app.logger.debug('Got MENU: {} '.format(metadata['menu']))
+    if metadata['menu'] == 'startquiz':
+        quiz(event)
 
 def quiz(event, previous=None):
     "start or continue a quiz"
@@ -155,6 +190,7 @@ def quiz(event, previous=None):
     # Send a gif
     #page.send(sender_id, Attachment.Image('https://media.giphy.com/media/3o7bu57lYhUEFiYDSM/giphy.gif'))
 
+    page.typing_on(sender_id)
     # the first question is special
     if previous is None:
         # a brand new quiz
@@ -196,6 +232,8 @@ def send_prize(event, previous=None):
     message = event.message_text
     page.typing_on(sender_id)
     page.send(sender_id, "wow, you're on a nice streak. Here's a prize!")
+    for p in quizprizes:
+        app.logger.debug('Prize: {!r}: {} is_embargoed: {}'.format(p.url, p.embargo, p.is_embargoed))
     # Send a gif prize
     try:
         prize = random.choice([q for q in quizprizes if not q.is_embargoed])
@@ -206,6 +244,8 @@ def send_prize(event, previous=None):
         att = Attachment.Image(prize.url)
     elif prize.media_type == 'video':
         att = Attachment.Video(prize.url)
+    elif prize.media_type == 'text':
+        att = prize.url
     page.send(sender_id, att)
 
 def get_giphy(context):
@@ -222,15 +262,18 @@ def callback_answer(payload, event):
     page.typing_on(sender_id)
     prefix, metadata = decode_payload(payload)
     app.logger.debug('Got ANSWER: {} (correct? {})'.format(metadata, 'YES' if metadata['correct'] else 'NON'))
-    page.send(sender_id, "That's {}".format('CORRECT' if metadata['correct'] else 'INCORRECT :('))
     if random.random() > 0.9: # ten percent of the time, send a gif
         giph = get_giphy('CORRECT' if metadata['correct'] else 'WRONG')
         if giph is not None:
             page.send(sender_id, Attachment.Image(giph.url))
 
     # TODO check how many we have correct
-    if metadata['correct']:
+    if not metadata['correct']:
+        # wrong answer
+        menu(event, menutext="Ouch. Wrooooong! 	:poop: ... Try again!")
+    else:
         # answer is correct, you may continue
+        page.send(sender_id, "Right on!")
         _prev = metadata['previous']
         notfinished = 7 > len(_prev)
         if notfinished:
