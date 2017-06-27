@@ -1,0 +1,63 @@
+# Norwegian Bokmal translations for funkyquizbot package.
+# Copyright (C) 2017 THE funkyquizbot'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the funkyquizbot package.
+# "" <havard.gulldahl@nrk.no>, 2017.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: n18040\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2017-06-27 23:08+0200\n"
+"PO-Revision-Date: 2017-06-27 23:12+0200\n"
+"Last-Translator: \"\" <havard.gulldahl@nrk.no>\n"
+"Language-Team: Norwegian Bokmal\n"
+"Language: nb\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: funkyquizbot/app.py:42
+msgid "Welcome to this grand quiz!"
+msgstr "Velkommen til en super quiz!"
+
+#: funkyquizbot/app.py:125
+msgid "Yea, let's do something!"
+msgstr "Klart, la oss sette i gang!"
+
+#: funkyquizbot/app.py:165
+msgid "Yo! What are you up to?"
+msgstr "Yo! Hva er det du vil?"
+
+#: funkyquizbot/app.py:168
+msgid "Start a quiz"
+msgstr "Start en quiz"
+
+#: funkyquizbot/app.py:169
+msgid "Watch the show"
+msgstr "Se på programmet"
+
+#: funkyquizbot/app.py:201
+msgid "Welcome to a brand new quiz! If you get seven in a row, you get a prize"
+msgstr "Velkommen til en fersk quiz! Hvis du får syv på rad, får du en premie"
+
+#: funkyquizbot/app.py:215
+msgid "We have no available quizes for you, pls try again later 8)"
+msgstr "Vi har ingen tilgjengelige quizer, kan du prøve igjen senere? 8)"
+
+#: funkyquizbot/app.py:238
+msgid "Wow, you're on a nice streak. Here's a prize!"
+msgstr "Wow, du har fin flyt! Her er en premie!"
+
+#: funkyquizbot/app.py:277
+msgid "Ouch. Wrooooong!:poop: ... Try again!"
+msgstr "Iiik. Feeeeil! :poop: .. Prøv på nytt!"
+
+#: funkyquizbot/app.py:280
+msgid "Right on!"
+msgstr "Fulltreffer!"
+
+#: funkyquizbot/app.py:284
+msgid "You have {} correct questions, only {} to go!"
+msgstr "Du har {} riktige svar, bare {} igjen!"
+

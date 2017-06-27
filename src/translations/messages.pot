@@ -1,0 +1,62 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2017-06-27 23:06+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: funkyquizbot/app.py:42
+msgid "Welcome to this grand quiz!"
+msgstr ""
+
+#: funkyquizbot/app.py:125
+msgid "Yea, let's do something!"
+msgstr ""
+
+#: funkyquizbot/app.py:165
+msgid "Yo! What are you up to?"
+msgstr ""
+
+#: funkyquizbot/app.py:168
+msgid "Start a quiz"
+msgstr ""
+
+#: funkyquizbot/app.py:169
+msgid "Watch the show"
+msgstr ""
+
+#: funkyquizbot/app.py:201
+msgid "Welcome to a brand new quiz! If you get seven in a row, you get a prize"
+msgstr ""
+
+#: funkyquizbot/app.py:215
+msgid "We have no available quizes for you, pls try again later 8)"
+msgstr ""
+
+#: funkyquizbot/app.py:238
+msgid "Wow, you're on a nice streak. Here's a prize!"
+msgstr ""
+
+#: funkyquizbot/app.py:277
+msgid "Ouch. Wrooooong!:poop: ... Try again!"
+msgstr ""
+
+#: funkyquizbot/app.py:280
+msgid "Right on!"
+msgstr ""
+
+#: funkyquizbot/app.py:284
+msgid "You have {} correct questions, only {} to go!"
+msgstr ""

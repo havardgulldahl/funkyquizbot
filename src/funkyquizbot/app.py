@@ -6,6 +6,9 @@ import random
 import pickle
 import json
 
+import gettext
+gettext.install('funkyquizbot') # now we have _() to wrap translations in
+
 import logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -36,7 +39,7 @@ file_handler.setFormatter(formatter)
 app.logger.addHandler(file_handler)
 
 page = fbmq.Page(PAGE_ACCESS_TOKEN)
-page.greeting("Welcome!")
+page.greeting(_("Welcome to this grand quiz!"))
 page.show_starting_button("GET_STARTED_BUTTON")
 
 def setup_quizes():
@@ -119,7 +122,7 @@ def decode_payload(s):
 @page.callback(['GET_STARTED_BUTTON'])
 def get_started_callback(payload, event):
     app.logger.debug('Get started button: {!r} - {!r}')
-    menu(event, menutext="Yea, let's do something!")
+    menu(event, menutext=_("Yea, let's do something!"))
 
 @page.handle_message
 def message_handler(event):
@@ -159,10 +162,11 @@ def message_handler(event):
 def menu(event, menutext=None):
     "show a menu of available options"
     if menutext is None:
-        menutext = "Yo! What are you up to?"
+        menutext = _("Yo! What are you up to?")
     sender_id = event.sender_id
     message = event.message_text
-    MENU_OPTIONS = {'startquiz':'Start quiz!'}
+    MENU_OPTIONS = {'startquiz':_('Start a quiz'),
+                    'watchshow':_('Watch the show')}
     buttons = []
     for value,text in MENU_OPTIONS.items():
         buttons.append(
@@ -194,7 +198,7 @@ def quiz(event, previous=None):
     # the first question is special
     if previous is None:
         # a brand new quiz
-        page.send(sender_id, "Welcome to a brand new quiz! If you get seven in a row, you get a prize")
+        page.send(sender_id, _("Welcome to a brand new quiz! If you get seven in a row, you get a prize"))
         previous = [ ]  # a list to keep previous quiz id's 
     else:
         if len(previous) == 7:
@@ -208,7 +212,7 @@ def quiz(event, previous=None):
             quiz = random.choice(quizes) # we've had this ques before, get a new onone
     except IndexError:
         # no quizes in list, yikes
-        page.send(sender_id, "We have no available quizes for you, pls try again later 8)")
+        page.send(sender_id, _("We have no available quizes for you, pls try again later 8)"))
         return
     previous.append(quiz.qid) # remember what we've seen|
     buttons = []
@@ -231,7 +235,7 @@ def send_prize(event, previous=None):
     sender_id = event.sender_id
     message = event.message_text
     page.typing_on(sender_id)
-    page.send(sender_id, "wow, you're on a nice streak. Here's a prize!")
+    page.send(sender_id, _("Wow, you're on a nice streak. Here's a prize!"))
     for p in quizprizes:
         app.logger.debug('Prize: {!r}: {} is_embargoed: {}'.format(p.url, p.embargo, p.is_embargoed))
     # Send a gif prize
@@ -270,14 +274,14 @@ def callback_answer(payload, event):
     # TODO check how many we have correct
     if not metadata['correct']:
         # wrong answer
-        menu(event, menutext="Ouch. Wrooooong! 	:poop: ... Try again!")
+        menu(event, menutext=_("Ouch. Wrooooong!:poop: ... Try again!"))
     else:
         # answer is correct, you may continue
-        page.send(sender_id, "Right on!")
+        page.send(sender_id, _("Right on!"))
         _prev = metadata['previous']
         notfinished = 7 > len(_prev)
         if notfinished:
-            page.send(sender_id, "you have {} correct questions, only {} to go!".format(len(_prev),
+            page.send(sender_id, _("You have {} correct questions, only {} to go!").format(len(_prev),
                                                                                         7-len(_prev)))
         quiz(event, _prev)
 
