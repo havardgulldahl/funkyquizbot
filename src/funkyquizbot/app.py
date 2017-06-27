@@ -6,15 +6,15 @@ import random
 import pickle
 import json
 
-import gettext
-gettext.install('funkyquizbot') # now we have _() to wrap translations in
-
 import logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 from envparse import env, ConfigurationError # pip install envparse
 env.read_envfile()
+
+import gettext
+gettext.install('funkyquizbot', env('TRANSLATIONS_PATH')) # now we have _() to wrap translations in
 
 from flask import Flask, request, g, current_app
 from werkzeug.local import LocalProxy
