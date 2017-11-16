@@ -149,6 +149,10 @@ def message_handler(event):
     page.typing_on(sender_id)
     if message_text is None:
         app.logger.debug("message is none, is this a thumbs up?")
+        if message.get('sticker_id') == 369239263222822:
+            # we got a thumbs up
+            emojis = '👾💪🙌😤🙄🤔🥊🔥🛀🚽🔫🐰'
+            page.send(sender_id, random.choice(emojis))
     elif message_text.lower() in ['quiz',]:
         quiz(event)
     elif event.is_postback:
@@ -157,7 +161,6 @@ def message_handler(event):
         app.logger.debug("this is quickreply, someone else must handle it")
     else:
         menu(event)
-        #page.send(sender_id, "thank you, '%s' yourself! type 'quiz' to start it :)" % message_text, callback=receipt)
 
 def menu(event, menutext=None):
     "show a menu of available options"
@@ -186,13 +189,23 @@ def callback_menu(payload, event):
     app.logger.debug('Got MENU: {} '.format(metadata['menu']))
     if metadata['menu'] == 'startquiz':
         quiz(event)
+    elif metadata['menu'] == 'watchshow':
+        tpl = Template.Generic([
+                Template.GenericElement(env('WEBPAGE_TITLE'),
+                    subtitle=env('WEBPAGE_SUBTITLE'),
+                    item_url=env('WEBPAGE_URL'),
+                    image_url=env('WEBPAGE_LOGO'),
+                    buttons=[
+                        Template.ButtonWeb(_('Watch it now'), env('WEBPAGE_URL'))
+                    ])
+        ])
+        page.send(sender_id, tpl)
 
 def quiz(event, previous=None):
     "start or continue a quiz"
     sender_id = event.sender_id
     message = event.message_text
     # Send a gif
-    #page.send(sender_id, Attachment.Image('https://media.giphy.com/media/3o7bu57lYhUEFiYDSM/giphy.gif'))
 
     page.typing_on(sender_id)
     # the first question is special
