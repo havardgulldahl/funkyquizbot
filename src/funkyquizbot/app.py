@@ -202,6 +202,8 @@ def callback_menu(payload, event):
         ])
         page.send(sender_id, tpl)
     elif metadata['menu'] == 'talk':
+        # TODO: Figure out how to make a dialogue work
+        page.send(sender_id, _("Yes. What do you want to say?"))
 
 
 def quiz(event, previous=None):
