@@ -169,6 +169,7 @@ def menu(event, menutext=None):
     sender_id = event.sender_id
     message = event.message_text
     MENU_OPTIONS = {'startquiz':_('Start a quiz'),
+                    'talk':_('Talk to the show producers'),
                     'watchshow':_('Watch the show')}
     buttons = []
     for value,text in MENU_OPTIONS.items():
@@ -200,6 +201,8 @@ def callback_menu(payload, event):
                     ])
         ])
         page.send(sender_id, tpl)
+    elif metadata['menu'] == 'talk':
+
 
 def quiz(event, previous=None):
     "start or continue a quiz"
